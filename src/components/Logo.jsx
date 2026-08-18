@@ -10,7 +10,7 @@ export function Logo({ className = '' }) {
         </svg>
       </span>
       <span className="text-lg font-extrabold tracking-tight text-ink-900">
-        Deutsch<span className="text-brand-600">Home</span>
+        German<span className="text-brand-600">Mitra</span>
       </span>
     </span>
   )
