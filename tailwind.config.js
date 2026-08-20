@@ -11,21 +11,21 @@ export default {
 
       colors: {
         /*
-         * GermanRental Purple / Mauve Theme
-         * Based on the uploaded color palette
+         * GermanRental Slate Blue Theme
+         * Trust-forward, marketplace-credible primary palette
          */
         brand: {
-          50: '#FFF5FA',
-          100: '#F5D5E0',
-          200: '#E9B6D0',
-          300: '#D895C2',
-          400: '#C973B4',
-          500: '#A94D9D',
-          600: '#7B337D',
-          700: '#61215F',
-          800: '#440C4D',
-          900: '#32083D',
-          950: '#210535',
+          50: '#F4F7FF',
+          100: '#E1E9FE',
+          200: '#C3D3FC',
+          300: '#9BB4F8',
+          400: '#6D8CF0',
+          500: '#3F63E0',
+          600: '#2B47B8',
+          700: '#22368F',
+          800: '#1A2967',
+          900: '#131E4A',
+          950: '#0C1430',
         },
 
         /*
@@ -45,6 +45,35 @@ export default {
           900: '#1c2030',
           950: '#11131f',
         },
+
+        /*
+         * Accent — warm orange for CTAs and highlights
+         * Pairs with the slate blue brand color for contrast on
+         * primary actions like "Jetzt anfragen" / "Besichtigung buchen"
+         */
+        accent: {
+          50: '#FFF4EE',
+          100: '#FFE3D2',
+          200: '#FFC5A3',
+          300: '#FFA06A',
+          400: '#FF7A3D',
+          500: '#F45A1C',
+          600: '#D5430E',
+          700: '#AC330B',
+          800: '#84280C',
+          900: '#5E1D0A',
+          950: '#3A1206',
+        },
+
+        /*
+         * Status colors for listing states
+         * Kept separate from brand/accent so they never compete visually
+         */
+        status: {
+          available: '#2E8B57',
+          pending: '#E7B10A',
+          taken: '#9AA3B5',
+        },
       },
 
       boxShadow: {
@@ -58,13 +87,22 @@ export default {
           '0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04)',
 
         /*
-         * Additional purple glow for important UI elements
+         * Blue glow for important UI elements
          */
         brand:
-          '0 4px 14px rgba(123,51,125,0.18)',
+          '0 4px 14px rgba(63,99,224,0.18)',
 
         brandHover:
-          '0 8px 24px rgba(123,51,125,0.25)',
+          '0 8px 24px rgba(63,99,224,0.25)',
+
+        /*
+         * Orange glow for CTA buttons
+         */
+        accent:
+          '0 4px 14px rgba(244,90,28,0.20)',
+
+        accentHover:
+          '0 8px 24px rgba(244,90,28,0.28)',
       },
 
       borderRadius: {
