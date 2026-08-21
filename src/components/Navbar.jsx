@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { Logo } from './Logo'
 import { classNames } from '../utils/format'
+import { GERMAN_CITIES } from '../data/cities'
 
 export function Navbar() {
   const {
@@ -33,14 +34,20 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+
+  // Search state
   const [location, setLocation] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const menuRef = useRef(null)
+  const searchRef = useRef(null)
+
   const navigate = useNavigate()
 
-  // --------------------------------------------------
+  // ==================================================
   // Navbar scroll effect
-  // --------------------------------------------------
+  // ==================================================
+
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 8)
@@ -57,9 +64,10 @@ export function Navbar() {
     }
   }, [])
 
-  // --------------------------------------------------
+  // ==================================================
   // Close profile dropdown when clicking outside
-  // --------------------------------------------------
+  // ==================================================
+
   useEffect(() => {
     const onClick = (e) => {
       if (
@@ -77,9 +85,31 @@ export function Navbar() {
     }
   }, [])
 
-  // --------------------------------------------------
+  // ==================================================
+  // Close search suggestions when clicking outside
+  // ==================================================
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(e.target)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', onClick)
+
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+    }
+  }, [])
+
+  // ==================================================
   // Disable body scroll when mobile menu is open
-  // --------------------------------------------------
+  // ==================================================
+
   useEffect(() => {
     document.body.style.overflow = mobileOpen
       ? 'hidden'
@@ -90,38 +120,66 @@ export function Navbar() {
     }
   }, [mobileOpen])
 
-  // --------------------------------------------------
-  // Logout
-  // --------------------------------------------------
-  const handleLogout = () => {
-    logout()
-    setMenuOpen(false)
-    setMobileOpen(false)
-    navigate('/')
-  }
+  // ==================================================
+  // Search suggestions
+  // ==================================================
 
-  // --------------------------------------------------
+  const filteredCities = location.trim()
+    ? GERMAN_CITIES.filter((city) => {
+        const searchText = location
+          .trim()
+          .toLowerCase()
+
+        return (
+          city.name.toLowerCase().includes(searchText) ||
+          city.state.toLowerCase().includes(searchText)
+        )
+      }).slice(0, 6)
+    : []
+
+  // ==================================================
   // Search
-  // --------------------------------------------------
+  // ==================================================
+
   const handleSearch = (e) => {
     e.preventDefault()
 
     const searchValue = location.trim()
 
+    setShowSuggestions(false)
+
     if (searchValue) {
       navigate(
-        `/properties?location=${encodeURIComponent(
-          searchValue
-        )}`
+        `/properties?q=${encodeURIComponent(searchValue)}`
       )
     } else {
       navigate('/properties')
     }
   }
 
-  // --------------------------------------------------
+  // ==================================================
+  // Select search suggestion
+  // ==================================================
+
+  const handleSuggestionClick = (city) => {
+    if (!city || !city.name) return
+
+    // Put selected city into search box
+    setLocation(city.name)
+
+    // Close dropdown
+    setShowSuggestions(false)
+
+    // Navigate directly with city filter
+    navigate(
+      `/properties?city=${encodeURIComponent(city.name)}`
+    )
+  }
+
+  // ==================================================
   // Dashboard based on role
-  // --------------------------------------------------
+  // ==================================================
+
   const dashboardLink = isAdmin
     ? '/dashboard/admin'
     : isLandlord
@@ -140,6 +198,7 @@ export function Navbar() {
       {/* ==================================================
           TOP NAVBAR
       ================================================== */}
+
       <nav
         className="
           mx-auto flex
@@ -154,6 +213,7 @@ export function Navbar() {
         {/* ==================================================
             LOGO
         ================================================== */}
+
         <Link
           to="/"
           aria-label="GermanMitra home"
@@ -165,9 +225,11 @@ export function Navbar() {
         {/* ==================================================
             DESKTOP SEARCH
         ================================================== */}
-        <form
-          onSubmit={handleSearch}
+
+        <div
+          ref={searchRef}
           className="
+            relative
             hidden
             min-w-0
             flex-1
@@ -176,76 +238,102 @@ export function Navbar() {
             lg:max-w-[400px]
           "
         >
-          <div
-            className="
-              flex h-12
-              w-full
-              items-center
-              overflow-hidden
-              rounded-full
-              border border-ink-200
-              bg-white
-              shadow-soft
-              transition-all duration-200
-              focus-within:border-brand-300
-              focus-within:shadow-card
-            "
-          >
-            <Search
+          <form onSubmit={handleSearch}>
+            <div
               className="
-                ml-4
-                h-4 w-4
-                shrink-0
-                text-ink-400
-              "
-            />
-
-            <input
-              id="navbar-location"
-              type="text"
-              value={location}
-              onChange={(e) =>
-                setLocation(e.target.value)
-              }
-              placeholder="Search city or location"
-              aria-label="Search city or location"
-              className="
-                min-w-0
-                flex-1
-                bg-transparent
-                px-3
-                text-sm
-                font-medium
-                text-ink-900
-                outline-none
-                placeholder:text-ink-400
-              "
-            />
-
-            <button
-              type="submit"
-              aria-label="Search"
-              className="
-                mr-1
-                flex h-10 w-10
-                shrink-0
+                flex h-12
+                w-full
                 items-center
-                justify-center
+                overflow-hidden
                 rounded-full
-                bg-brand-600
-                text-white
-                transition
-                hover:bg-brand-700
+                border border-ink-200
+                bg-white
+                shadow-soft
+                transition-all duration-200
+                focus-within:border-brand-300
+                focus-within:shadow-card
               "
             >
-              <Search className="h-4 w-4" />
-            </button>
-          </div>
-        </form>
+              <Search
+                className="
+                  ml-4
+                  h-4 w-4
+                  shrink-0
+                  text-ink-400
+                "
+              />
+
+              <input
+                id="navbar-location"
+                type="text"
+                value={location}
+                onChange={(e) => {
+                  const value = e.target.value
+
+                  setLocation(value)
+
+                  setShowSuggestions(
+                    value.trim().length > 0
+                  )
+                }}
+                onFocus={() => {
+                  if (location.trim()) {
+                    setShowSuggestions(true)
+                  }
+                }}
+                placeholder="Search city or location"
+                aria-label="Search city or location"
+                autoComplete="off"
+                className="
+                  min-w-0
+                  flex-1
+                  bg-transparent
+                  px-3
+                  text-sm
+                  font-medium
+                  text-ink-900
+                  outline-none
+                  placeholder:text-ink-400
+                "
+              />
+
+              <button
+                type="submit"
+                aria-label="Search"
+                className="
+                  mr-1
+                  flex h-10 w-10
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-brand-600
+                  text-white
+                  transition
+                  hover:bg-brand-700
+                "
+              >
+                <Search className="h-4 w-4" />
+              </button>
+            </div>
+          </form>
+
+          {/* ==================================================
+              DESKTOP SEARCH SUGGESTIONS
+          ================================================== */}
+
+          {showSuggestions && location.trim() && (
+            <SearchSuggestions
+              cities={filteredCities}
+              onSelect={handleSuggestionClick}
+            />
+          )}
+        </div>
 
         {/* ==================================================
             DESKTOP NAVIGATION
         ================================================== */}
+
         <div
           className="
             ml-auto
@@ -256,6 +344,7 @@ export function Navbar() {
           "
         >
           {/* Apartments */}
+
           <Link
             to="/properties"
             className="
@@ -273,6 +362,7 @@ export function Navbar() {
           </Link>
 
           {/* For landlords */}
+
           <Link
             to="/dashboard/landlord"
             className="
@@ -289,7 +379,8 @@ export function Navbar() {
             For landlords
           </Link>
 
-          {/* Wishlist - ICON ONLY */}
+          {/* Wishlist */}
+
           <Link
             to="/dashboard/tenant"
             aria-label="Wishlist"
@@ -336,6 +427,7 @@ export function Navbar() {
           {/* ==================================================
               AUTHENTICATED USER
           ================================================== */}
+
           {isAuthenticated ? (
             <div
               className="relative ml-2"
@@ -391,6 +483,7 @@ export function Navbar() {
               </button>
 
               {/* User Dropdown */}
+
               {menuOpen && (
                 <div
                   className="
@@ -495,6 +588,7 @@ export function Navbar() {
             /* ==================================================
                SIGN IN
             ================================================== */
+
             <Link
               to="/login"
               className="
@@ -518,6 +612,7 @@ export function Navbar() {
         {/* ==================================================
             MOBILE MENU BUTTON
         ================================================== */}
+
         <button
           onClick={() =>
             setMobileOpen((open) => !open)
@@ -547,10 +642,12 @@ export function Navbar() {
 
       {/* ==================================================
           MOBILE / TABLET SEARCH
-          Search remains visible on small screens
       ================================================== */}
+
       <div
+        ref={searchRef}
         className="
+          relative
           border-t
           border-ink-100
           bg-white
@@ -586,11 +683,23 @@ export function Navbar() {
             <input
               type="text"
               value={location}
-              onChange={(e) =>
-                setLocation(e.target.value)
-              }
+              onChange={(e) => {
+                const value = e.target.value
+
+                setLocation(value)
+
+                setShowSuggestions(
+                  value.trim().length > 0
+                )
+              }}
+              onFocus={() => {
+                if (location.trim()) {
+                  setShowSuggestions(true)
+                }
+              }}
               placeholder="Search city or location"
               aria-label="Search city or location"
+              autoComplete="off"
               className="
                 min-w-0
                 flex-1
@@ -622,11 +731,22 @@ export function Navbar() {
             </button>
           </div>
         </form>
+
+        {/* Mobile suggestions */}
+
+        {showSuggestions && location.trim() && (
+          <SearchSuggestions
+            cities={filteredCities}
+            onSelect={handleSuggestionClick}
+            mobile
+          />
+        )}
       </div>
 
       {/* ==================================================
           MOBILE MENU
       ================================================== */}
+
       {mobileOpen && (
         <div
           className="
@@ -646,7 +766,6 @@ export function Navbar() {
               py-4
             "
           >
-            {/* Apartments */}
             <MobileLink
               to="/properties"
               label="Apartments"
@@ -655,7 +774,6 @@ export function Navbar() {
               }
             />
 
-            {/* For landlords */}
             <MobileLink
               to="/dashboard/landlord"
               label="For landlords"
@@ -664,7 +782,8 @@ export function Navbar() {
               }
             />
 
-            {/* Wishlist ICON ONLY */}
+            {/* Wishlist */}
+
             <Link
               to="/dashboard/tenant"
               onClick={() =>
@@ -710,6 +829,7 @@ export function Navbar() {
             <div className="my-3 h-px bg-ink-100" />
 
             {/* Authenticated mobile options */}
+
             {isAuthenticated ? (
               <>
                 <Link
@@ -767,6 +887,7 @@ export function Navbar() {
               </>
             ) : (
               /* Mobile Sign In */
+
               <Link
                 to="/login"
                 onClick={() =>
@@ -797,6 +918,148 @@ export function Navbar() {
   )
 }
 
+/* ==========================================================
+   SEARCH SUGGESTIONS
+========================================================== */
+
+function SearchSuggestions({
+  cities,
+  onSelect,
+  mobile = false,
+}) {
+  return (
+    <div
+      className={`
+        absolute
+        left-0
+        right-0
+        top-full
+        z-[60]
+        mt-2
+        overflow-hidden
+        rounded-2xl
+        border
+        border-ink-100
+        bg-white
+        shadow-cardHover
+        ${mobile ? 'mx-5' : ''}
+      `}
+    >
+      {cities.length > 0 ? (
+        <div className="py-2">
+          <p
+            className="
+              px-4
+              pb-2
+              pt-2
+              text-xs
+              font-semibold
+              uppercase
+              tracking-wide
+              text-ink-400
+            "
+          >
+            Locations
+          </p>
+
+          {cities.map((city) => (
+            <button
+              key={city.name}
+              type="button"
+
+              /*
+               * IMPORTANT:
+               * Use onMouseDown instead of onClick.
+               *
+               * The Navbar also has a document-level
+               * mousedown listener that closes the
+               * suggestions. Using mousedown here makes
+               * sure the city selection happens first.
+               */
+              onMouseDown={(e) => {
+                e.preventDefault()
+                onSelect(city)
+              }}
+
+              className="
+                flex
+                w-full
+                items-center
+                gap-3
+                px-4
+                py-3
+                text-left
+                transition
+                hover:bg-brand-50
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-9
+                  w-9
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-brand-50
+                  text-brand-700
+                "
+              >
+                <Search className="h-4 w-4" />
+              </div>
+
+              <div className="min-w-0">
+                <p
+                  className="
+                    truncate
+                    text-sm
+                    font-semibold
+                    text-ink-900
+                  "
+                >
+                  {city.name}
+                </p>
+
+                <p
+                  className="
+                    truncate
+                    text-xs
+                    text-ink-500
+                  "
+                >
+                  {city.state}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 py-5 text-center">
+          <p
+            className="
+              text-sm
+              font-medium
+              text-ink-700
+            "
+          >
+            No locations found
+          </p>
+
+          <p
+            className="
+              mt-1
+              text-xs
+              text-ink-400
+            "
+          >
+            Try another city or location
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /* ==========================================================
    DESKTOP DROPDOWN ITEM
@@ -829,7 +1092,6 @@ function MenuItem({
     </Link>
   )
 }
-
 
 /* ==========================================================
    MOBILE NAVIGATION ITEM
