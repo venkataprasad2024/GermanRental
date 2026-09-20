@@ -1,29 +1,44 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  SlidersHorizontal,
   ArrowUpDown,
-  Grid2x2,
-  LayoutGrid,
+  Map as MapIcon,
+  List as ListIcon,
+  MapPin,
   Search,
   X,
 } from 'lucide-react'
 
 import { PropertyCard } from '../components/PropertyCard'
-import { FilterPanel } from '../components/FilterPanel'
+import { FilterBar } from '../components/FilterBar'
+import { PropertyMap } from '../components/PropertyMap'
+
 import {
   EmptyState,
   SkeletonCard,
   DisclaimerBanner,
 } from '../components/ui'
+
 import { useListings } from '../context/ListingsContext'
 import { classNames } from '../utils/format'
 
 const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'price-asc', label: 'Price: low to high' },
-  { value: 'price-desc', label: 'Price: high to low' },
-  { value: 'area-desc', label: 'Largest area' },
+  {
+    value: 'newest',
+    label: 'Newest first',
+  },
+  {
+    value: 'price-asc',
+    label: 'Price: low to high',
+  },
+  {
+    value: 'price-desc',
+    label: 'Price: high to low',
+  },
+  {
+    value: 'area-desc',
+    label: 'Largest area',
+  },
 ]
 
 const emptyFilters = {
@@ -36,42 +51,60 @@ const emptyFilters = {
   q: '',
 }
 
+const MAP_RADIUS_KM = 2
+
 export default function Properties() {
   const { listings } = useListings()
   const [params, setParams] = useSearchParams()
 
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('newest')
-  const [density, setDensity] = useState('comfortable')
-  const [mobileFilters, setMobileFilters] = useState(false)
 
   /*
-   * CITY COMES DIRECTLY FROM THE URL.
+   * Desktop:
+   * Map is always visible on the right.
    *
-   * Navbar:
+   * Mobile:
+   * mapOpen switches between property list and map.
+   */
+  const [mapOpen, setMapOpen] = useState(false)
+  const [mapLocation, setMapLocation] = useState(null)
+  const [selectedPropertyId, setSelectedPropertyId] = useState(null)
+  const ignoreInitialMapViewport = useRef(true)
+
+  /*
+   * =========================================================
+   * CITY FROM URL
+   * =========================================================
+   *
+   * /properties?city=Berlin
    * /properties?city=Frankfurt
-   *
-   * Therefore:
-   * city = Frankfurt
-   *
-   * We do NOT use an effect to copy this into state.
+   * /properties?city=Munich
    */
   const selectedCity = params.get('city') || ''
 
   /*
-   * Other filters remain local state.
+   * =========================================================
+   * FILTER STATE
+   * =========================================================
    */
   const [filters, setFilters] = useState(() => ({
     ...emptyFilters,
     type: params.get('type') || '',
     maxRent: params.get('maxRent') || '',
+    bedrooms: params.get('bedrooms') || '',
+    furnished: params.get('furnished') || '',
     q: params.get('q') || '',
+    amenities: params.get('amenities')
+      ? params.get('amenities').split(',')
+      : [],
   }))
 
-  // -------------------------------------------------------
-  // LOADING
-  // -------------------------------------------------------
-
+  /*
+   * =========================================================
+   * INITIAL LOADING
+   * =========================================================
+   */
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false)
@@ -80,13 +113,11 @@ export default function Properties() {
     return () => clearTimeout(timer)
   }, [])
 
-  // -------------------------------------------------------
-  // UPDATE NON-CITY URL FILTERS
-  //
-  // City is NOT handled here.
-  // City belongs to the URL directly.
-  // -------------------------------------------------------
-
+  /*
+   * =========================================================
+   * KEEP FILTERS IN URL
+   * =========================================================
+   */
   useEffect(() => {
     const next = new URLSearchParams(params)
 
@@ -102,44 +133,111 @@ export default function Properties() {
       next.delete('maxRent')
     }
 
+    if (filters.bedrooms) {
+      next.set('bedrooms', filters.bedrooms)
+    } else {
+      next.delete('bedrooms')
+    }
+
+    if (filters.furnished) {
+      next.set('furnished', filters.furnished)
+    } else {
+      next.delete('furnished')
+    }
+
     if (filters.q) {
       next.set('q', filters.q)
     } else {
       next.delete('q')
     }
 
-    const current = params.toString()
-    const updated = next.toString()
+    if (
+      filters.amenities &&
+      filters.amenities.length > 0
+    ) {
+      next.set(
+        'amenities',
+        filters.amenities.join(','),
+      )
+    } else {
+      next.delete('amenities')
+    }
 
-    if (current !== updated) {
-      setParams(next, { replace: true })
+    const currentString = params.toString()
+    const nextString = next.toString()
+
+    if (currentString !== nextString) {
+      setParams(next, {
+        replace: true,
+      })
     }
   }, [
     filters.type,
     filters.maxRent,
+    filters.bedrooms,
+    filters.furnished,
     filters.q,
+    filters.amenities,
+    params,
     setParams,
   ])
 
-  // -------------------------------------------------------
-  // FILTER PROPERTIES
-  // -------------------------------------------------------
+  /*
+   * =========================================================
+   * FILTER BAR CHANGE
+   * =========================================================
+   */
+  const handleFilterChange = (nextFilters) => {
+    /*
+     * City is stored in the URL.
+     */
+    if (nextFilters.city !== selectedCity) {
+      const nextParams = new URLSearchParams(params)
 
-  const filtered = useMemo(() => {
+      if (nextFilters.city) {
+        nextParams.set(
+          'city',
+          nextFilters.city,
+        )
+      } else {
+        nextParams.delete('city')
+      }
+
+      setParams(nextParams, {
+        replace: true,
+      })
+    }
+
+    /*
+     * Store all filters locally.
+     */
+    setFilters({
+      ...nextFilters,
+      city: selectedCity,
+    })
+
+    /*
+     * Changing normal filters clears
+     * a selected map location.
+     */
+    setMapLocation(null)
+  }
+
+  /*
+   * =========================================================
+   * BASE FILTERING
+   * =========================================================
+   *
+   * These are the normal filters.
+   * Map filtering is applied afterwards.
+   */
+  const baseFiltered = useMemo(() => {
     let list = listings.filter(
-      (p) => p.status === 'approved'
+      (p) => p.status === 'approved',
     )
 
     /*
-     * CITY FILTER
-     *
-     * This works for EVERY city.
-     *
-     * Berlin     -> Berlin
-     * Frankfurt  -> Frankfurt
-     * Hamburg    -> Hamburg
-     * Munich     -> Munich
-     * etc.
+     * CITY
      */
     if (selectedCity) {
       const city = selectedCity
@@ -155,54 +253,74 @@ export default function Properties() {
       })
     }
 
-    // PROPERTY TYPE
+    /*
+     * PROPERTY TYPE
+     */
     if (filters.type) {
       list = list.filter(
-        (p) => p.type === filters.type
+        (p) => p.type === filters.type,
       )
     }
 
-    // MAX RENT
+    /*
+     * MAX RENT
+     */
     if (filters.maxRent) {
       list = list.filter(
         (p) =>
-          p.rent <= Number(filters.maxRent)
+          p.rent <= Number(filters.maxRent),
       )
     }
 
-    // BEDROOMS
+    /*
+     * BEDROOMS
+     */
     if (filters.bedrooms) {
       list = list.filter(
         (p) =>
-          p.bedrooms >= Number(filters.bedrooms)
+          p.bedrooms >=
+          Number(filters.bedrooms),
       )
     }
 
-    // FURNISHED
+    /*
+     * FURNISHED
+     */
     if (filters.furnished === 'yes') {
       list = list.filter(
-        (p) => p.furnished
+        (p) => p.furnished,
       )
     }
 
     if (filters.furnished === 'no') {
       list = list.filter(
-        (p) => !p.furnished
+        (p) => !p.furnished,
       )
     }
 
-    // AMENITIES
-    if (filters.amenities.length) {
-      list = list.filter(
-        (p) =>
-          p.amenities &&
-          filters.amenities.every((a) =>
-            p.amenities.includes(a)
-          )
-      )
+    /*
+     * AMENITIES
+     */
+    if (
+      filters.amenities &&
+      filters.amenities.length > 0
+    ) {
+      list = list.filter((p) => {
+        if (!p.amenities) return false
+
+        return filters.amenities.every(
+          (amenity) =>
+            p.amenities.includes(amenity),
+        )
+      })
     }
 
-    // SEARCH
+    /*
+     * TEXT SEARCH
+     *
+     * Kept so your existing search/URL
+     * behavior still works.
+     */
     if (filters.q) {
       const q = filters.q
         .trim()
@@ -230,119 +348,195 @@ export default function Properties() {
       })
     }
 
-    // SORT
-    switch (sort) {
-      case 'price-asc':
-        return [...list].sort(
-          (a, b) => a.rent - b.rent
-        )
-
-      case 'price-desc':
-        return [...list].sort(
-          (a, b) => b.rent - a.rent
-        )
-
-      case 'area-desc':
-        return [...list].sort(
-          (a, b) => b.area - a.area
-        )
-
-      case 'newest':
-      default:
-        return [...list].sort(
-          (a, b) =>
-            new Date(b.createdAt) -
-            new Date(a.createdAt)
-        )
-    }
+    return list
   }, [
     listings,
     selectedCity,
     filters,
+  ])
+
+  /*
+   * =========================================================
+   * FINAL FILTERING
+   * =========================================================
+   *
+   * Normal filters
+   *       ↓
+   * Map radius
+   *       ↓
+   * Sort
+   */
+  const filtered = useMemo(() => {
+    let list = [...baseFiltered]
+
+    /*
+     * MAP RADIUS
+     */
+    if (mapLocation) {
+      list = list.filter((property) => {
+        if (!property.coordinates) {
+          return false
+        }
+
+        const lat = Number(
+          property.coordinates.lat,
+        )
+
+        const lng = Number(
+          property.coordinates.lng,
+        )
+
+        if (
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lng)
+        ) {
+          return false
+        }
+
+        const distance = distanceInKm(
+          mapLocation.lat,
+          mapLocation.lng,
+          lat,
+          lng,
+        )
+
+        return distance <= MAP_RADIUS_KM
+      })
+    }
+
+    /*
+     * SORT
+     */
+    switch (sort) {
+      case 'price-asc':
+        return list.sort(
+          (a, b) => a.rent - b.rent,
+        )
+
+      case 'price-desc':
+        return list.sort(
+          (a, b) => b.rent - a.rent,
+        )
+
+      case 'area-desc':
+        return list.sort(
+          (a, b) => b.area - a.area,
+        )
+
+      case 'newest':
+      default:
+        list.sort(
+          (a, b) =>
+            new Date(b.createdAt) -
+            new Date(a.createdAt),
+        )
+        break
+    }
+
+    if (selectedPropertyId) {
+      const selectedIndex = list.findIndex(
+        (property) => property.id === selectedPropertyId,
+      )
+
+      if (selectedIndex > 0) {
+        const [selectedProperty] = list.splice(
+          selectedIndex,
+          1,
+        )
+        list.unshift(selectedProperty)
+      }
+    }
+
+    return list
+  }, [
+    baseFiltered,
+    mapLocation,
+    selectedPropertyId,
     sort,
   ])
 
-  // -------------------------------------------------------
-  // ACTIVE FILTER COUNT
-  // -------------------------------------------------------
-
-  const activeCount = [
-    selectedCity,
-    filters.type,
-    filters.bedrooms,
-    filters.furnished,
-    filters.q,
-    filters.maxRent ? 'rent' : '',
-    filters.amenities.length
-      ? 'amenities'
-      : '',
-  ].filter(Boolean).length
-
-  // -------------------------------------------------------
-  // RESET FILTERS
-  // -------------------------------------------------------
-
+  /*
+   * =========================================================
+   * RESET FILTERS
+   * =========================================================
+   */
   const resetFilters = () => {
     setFilters({
       ...emptyFilters,
     })
 
-    // Remove city and other URL filters
-    setParams({}, { replace: true })
+    setMapLocation(null)
+
+    setParams(
+      {},
+      {
+        replace: true,
+      },
+    )
   }
 
-  // -------------------------------------------------------
-  // FILTER PANEL CHANGE
-  // -------------------------------------------------------
-
-  const handleFilterChange = (nextFilters) => {
-    /*
-     * If the CITY dropdown inside FilterPanel changes,
-     * update the URL directly.
-     */
-
-    if (nextFilters.city !== selectedCity) {
-      const nextParams = new URLSearchParams(params)
-
-      if (nextFilters.city) {
-        nextParams.set(
-          'city',
-          nextFilters.city
-        )
-      } else {
-        nextParams.delete('city')
-      }
-
-      setParams(nextParams, {
-        replace: true,
-      })
-    }
-
-    /*
-     * Keep all the other existing filters.
-     *
-     * We don't store city in local state because
-     * selectedCity comes directly from the URL.
-     */
-    setFilters({
-      ...nextFilters,
-      city: selectedCity,
+  /*
+   * =========================================================
+   * MAP LOCATION
+   * =========================================================
+   */
+  const handleMapLocation = (location) => {
+    setMapLocation({
+      lat: location.lat,
+      lng: location.lng,
     })
+    setSelectedPropertyId(location.propertyId || null)
+  }
+  const handleMapViewport = (location) => {
+  if (ignoreInitialMapViewport.current) {
+    ignoreInitialMapViewport.current = false
+    return
+  }
+
+  setMapLocation({
+    lat: location.lat,
+    lng: location.lng,
+  })
+
+  setSelectedPropertyId(null)
+}
+  const clearMapLocation = () => {
+    setMapLocation(null)
+    setSelectedPropertyId(null)
   }
 
   return (
-    <div className="container-page py-8 lg:py-10">
+    <div className="container-page py-4 sm:py-6 lg:py-8">
 
-      {/* HEADER */}
+      {/* =====================================================
+          TOP FILTER BAR
+      ====================================================== */}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-4 lg:mb-5">
+        <FilterBar
+          filters={{
+            ...filters,
+            city: selectedCity,
+          }}
+          onChange={handleFilterChange}
+          resultCount={filtered.length}
+        />
+      </div>
 
-        <div>
+      {/* =====================================================
+          HEADER + SORT + MAP
+      ====================================================== */}
+
+      <div className="mt-2 flex items-center justify-between gap-3">
+
+        {/* TITLE */}
+
+        <div className="min-w-0">
           <h1 className="text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
             Browse properties
           </h1>
 
-          <p className="mt-2 text-sm text-ink-600">
+          <p className="mt-1 text-sm text-ink-600">
             {filtered.length}{' '}
             {filtered.length === 1
               ? 'home'
@@ -352,7 +546,7 @@ export default function Properties() {
             {selectedCity && (
               <>
                 {' '}in{' '}
-                <strong>
+                <strong className="font-semibold text-ink-900">
                   {selectedCity}
                 </strong>
               </>
@@ -360,319 +554,618 @@ export default function Properties() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* ===================================================
+            DESKTOP SORT + MAP
+        ==================================================== */}
 
-          {/* DESKTOP SEARCH */}
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
 
-          <div className="relative hidden sm:block">
+          {/* NEWEST FIRST */}
 
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-
-            <input
-              value={filters.q}
-              onChange={(e) =>
-                setFilters((f) => ({
-                  ...f,
-                  q: e.target.value,
-                }))
-              }
-              placeholder="Search title, city, district…"
-              className="input pl-9"
+          <label className="relative">
+            <ArrowUpDown
+              className="
+                pointer-events-none
+                absolute
+                left-3
+                top-1/2
+                h-4 w-4
+                -translate-y-1/2
+                text-ink-400
+              "
             />
 
-          </div>
+            <select
+              value={sort}
+              onChange={(e) =>
+                setSort(e.target.value)
+              }
+              className="
+                input
+                h-11
+                w-[165px]
+                appearance-none
+                pl-9
+                pr-8
+                text-sm
+              "
+            >
+              {SORT_OPTIONS.map(
+                (option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
 
-          {/* MOBILE FILTER BUTTON */}
+          {/* MAP */}
 
-          <button
-            onClick={() =>
-              setMobileFilters(true)
-            }
-            className="btn-secondary lg:hidden"
+          <div
+            className="
+              inline-flex
+              h-11
+              items-center
+              gap-2
+              rounded-full
+              border
+              border-ink-200
+              bg-white
+              px-4
+              text-sm
+              font-bold
+              text-ink-700
+            "
           >
-            <SlidersHorizontal className="h-4 w-4" />
-
-            Filters
-
-            {activeCount > 0 && (
-              <span className="ml-1 rounded-full bg-brand-600 px-1.5 text-xs font-bold text-white">
-                {activeCount}
-              </span>
-            )}
-          </button>
-
+            <MapIcon className="h-4 w-4 text-brand-700" />
+            Map
+          </div>
         </div>
       </div>
 
-      {/* MOBILE SEARCH */}
+      {/* =====================================================
+          ACTIVE FILTER PILLS
+      ====================================================== */}
 
-      <div className="relative mt-4 sm:hidden">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
 
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+        {selectedCity && (
+          <Pill
+            label={selectedCity}
+            onClear={() => {
+              const nextParams =
+                new URLSearchParams(params)
 
-        <input
-          value={filters.q}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              q: e.target.value,
-            }))
-          }
-          placeholder="Search title, city, district…"
-          className="input pl-9"
-        />
+              nextParams.delete('city')
 
-      </div>
+              setParams(
+                nextParams,
+                {
+                  replace: true,
+                },
+              )
 
-      {/* MAIN */}
+              setMapLocation(null)
+            }}
+          />
+        )}
 
-      <div className="mt-6 flex gap-8">
+        {filters.type && (
+          <Pill
+            label={filters.type}
+            onClear={() =>
+              setFilters(
+                (current) => ({
+                  ...current,
+                  type: '',
+                }),
+              )
+            }
+          />
+        )}
 
-        {/* FILTER PANEL */}
+        {filters.maxRent && (
+          <Pill
+            label={`Max €${filters.maxRent}`}
+            onClear={() =>
+              setFilters(
+                (current) => ({
+                  ...current,
+                  maxRent: '',
+                }),
+              )
+            }
+          />
+        )}
 
-        <FilterPanel
-          filters={{
-            ...filters,
-            city: selectedCity,
-          }}
-          onChange={handleFilterChange}
-          onReset={resetFilters}
-          resultCount={filtered.length}
-          mobileOpen={mobileFilters}
-          onMobileClose={() =>
-            setMobileFilters(false)
-          }
-        />
+        {filters.bedrooms && (
+          <Pill
+            label={`${filters.bedrooms}+ bedrooms`}
+            onClear={() =>
+              setFilters(
+                (current) => ({
+                  ...current,
+                  bedrooms: '',
+                }),
+              )
+            }
+          />
+        )}
 
-        {/* RESULTS */}
+        {filters.furnished === 'yes' && (
+          <Pill
+            label="Furnished"
+            onClear={() =>
+              setFilters(
+                (current) => ({
+                  ...current,
+                  furnished: '',
+                }),
+              )
+            }
+          />
+        )}
 
-        <div className="min-w-0 flex-1">
+        {filters.furnished === 'no' && (
+          <Pill
+            label="Unfurnished"
+            onClear={() =>
+              setFilters(
+                (current) => ({
+                  ...current,
+                  furnished: '',
+                }),
+              )
+            }
+          />
+        )}
 
-          {/* TOP BAR */}
-
-          <div className="mb-4 flex items-center justify-between gap-3">
-
-            <div className="flex flex-wrap items-center gap-2">
-
-              {activeCount > 0 && (
-                <button
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-3 py-1 text-xs font-medium text-ink-600 transition hover:bg-ink-200"
-                >
-                  Clear all
-
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-
-              {/* CITY PILL */}
-
-              {selectedCity && (
-                <Pill
-                  label={selectedCity}
-                  onClear={() => {
-                    const nextParams =
-                      new URLSearchParams(
-                        params
-                      )
-
-                    nextParams.delete('city')
-
-                    setParams(
-                      nextParams,
-                      { replace: true }
-                    )
-                  }}
-                />
-              )}
-
-              {/* TYPE PILL */}
-
-              {filters.type && (
-                <Pill
-                  label={filters.type}
-                  onClear={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      type: '',
-                    }))
-                  }
-                />
-              )}
-
-              {/* FURNISHED PILL */}
-
-              {filters.furnished === 'yes' && (
-                <Pill
-                  label="Furnished"
-                  onClear={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      furnished: '',
-                    }))
-                  }
-                />
-              )}
-
-              {filters.furnished === 'no' && (
-                <Pill
-                  label="Unfurnished"
-                  onClear={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      furnished: '',
-                    }))
-                  }
-                />
-              )}
-
-            </div>
-
-            {/* SORT */}
-
-            <div className="flex items-center gap-2">
-
-              {/* DENSITY */}
-
-              <div className="hidden items-center gap-1 rounded-xl ring-1 ring-ink-200 sm:flex">
-
-                <button
-                  onClick={() =>
-                    setDensity(
-                      'comfortable'
-                    )
-                  }
-                  className={classNames(
-                    'rounded-lg p-2 transition',
-                    density === 'comfortable'
-                      ? 'bg-ink-100 text-ink-900'
-                      : 'text-ink-400 hover:text-ink-700'
-                  )}
-                  aria-label="Comfortable grid"
-                >
-                  <Grid2x2 className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={() =>
-                    setDensity('compact')
-                  }
-                  className={classNames(
-                    'rounded-lg p-2 transition',
-                    density === 'compact'
-                      ? 'bg-ink-100 text-ink-900'
-                      : 'text-ink-400 hover:text-ink-700'
-                  )}
-                  aria-label="Compact grid"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </button>
-
-              </div>
-
-              {/* SORT */}
-
-              <label className="relative">
-
-                <ArrowUpDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-
-                <select
-                  value={sort}
-                  onChange={(e) =>
-                    setSort(e.target.value)
-                  }
-                  className="input appearance-none pl-9 pr-8"
-                >
-                  {SORT_OPTIONS.map((o) => (
-                    <option
-                      key={o.value}
-                      value={o.value}
-                    >
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-
-              </label>
-
-            </div>
-          </div>
-
-          {/* RESULTS */}
-
-          {loading ? (
-            <div
-              className={classNames(
-                'grid gap-6',
-                density === 'compact'
-                  ? 'sm:grid-cols-2 lg:grid-cols-4'
-                  : 'sm:grid-cols-2 lg:grid-cols-3'
-              )}
-            >
-              {Array.from({
-                length: 6,
-              }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={
-                <Search className="h-7 w-7" />
-              }
-              title="No properties match your filters"
-              description="Try widening your search — remove a filter or increase the maximum rent."
-              action={
-                <button
-                  onClick={resetFilters}
-                  className="btn-primary"
-                >
-                  Reset filters
-                </button>
+        {filters.amenities?.map(
+          (amenity) => (
+            <Pill
+              key={amenity}
+              label={amenity}
+              onClear={() =>
+                setFilters(
+                  (current) => ({
+                    ...current,
+                    amenities:
+                      current.amenities.filter(
+                        (a) =>
+                          a !== amenity,
+                      ),
+                  }),
+                )
               }
             />
-          ) : (
-            <div
-              className={classNames(
-                'grid gap-6',
-                density === 'compact'
-                  ? 'sm:grid-cols-2 lg:grid-cols-4'
-                  : 'sm:grid-cols-2 lg:grid-cols-3'
-              )}
-            >
-              {filtered.map((p, i) => (
-                <PropertyCard
-                  key={p.id}
-                  property={p}
-                  index={i}
+          ),
+        )}
+
+        {filters.q && (
+          <Pill
+            label={`Search: ${filters.q}`}
+            onClear={() =>
+              setFilters(
+                (current) => ({
+                  ...current,
+                  q: '',
+                }),
+              )
+            }
+          />
+        )}
+
+        {mapLocation && (
+          <button
+            type="button"
+            onClick={clearMapLocation}
+            className="
+              inline-flex
+              items-center
+              gap-1.5
+              rounded-full
+              bg-brand-50
+              px-3
+              py-1
+              text-xs
+              font-semibold
+              text-brand-700
+            "
+          >
+            <MapPin className="h-3 w-3" />
+            Nearby location
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
+      {/* =====================================================
+          MOBILE SORT
+      ====================================================== */}
+
+      <div className="mt-3 flex justify-end sm:hidden">
+        <label className="relative">
+          <ArrowUpDown
+            className="
+              pointer-events-none
+              absolute
+              left-3
+              top-1/2
+              h-4 w-4
+              -translate-y-1/2
+              text-ink-400
+            "
+          />
+
+          <select
+            value={sort}
+            onChange={(e) =>
+              setSort(e.target.value)
+            }
+            className="
+              input
+              h-10
+              w-[155px]
+              appearance-none
+              pl-9
+              pr-8
+              text-sm
+            "
+          >
+            {SORT_OPTIONS.map(
+              (option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+      </div>
+
+      {/* =====================================================
+          MOBILE MAP
+      ====================================================== */}
+
+      {mapOpen && (
+        <div className="mt-4 mb-5 lg:hidden">
+
+          <div className="h-[65vh] min-h-[420px]">
+            <PropertyMap
+  properties={baseFiltered}
+  selectedLocation={
+    mapLocation
+  }
+  onLocationSelect={
+    handleMapLocation
+  }
+  onViewportChange={
+    handleMapViewport
+  }
+  radiusKm={
+    MAP_RADIUS_KM
+  }
+/>
+          </div>
+
+          {mapLocation && (
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3">
+
+              <div>
+                <p className="text-sm font-semibold text-brand-700">
+                  {filtered.length}{' '}
+                  {filtered.length === 1
+                    ? 'property'
+                    : 'properties'}{' '}
+                  nearby
+                </p>
+
+                <p className="text-xs text-brand-600">
+                  Within {MAP_RADIUS_KM} km
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  clearMapLocation
+                }
+                className="text-xs font-semibold text-brand-700"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================
+          MAIN CONTENT
+      ====================================================== */}
+
+      <div className="mt-5 lg:grid lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-6">
+
+        {/* ===================================================
+            PROPERTY LIST
+        ==================================================== */}
+
+        <div className="min-w-0">
+
+          {loading ? (
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6">
+
+              {Array.from({
+                length: 4,
+              }).map((_, index) => (
+                <SkeletonCard
+                  key={index}
                 />
               ))}
+
+            </div>
+          ) : filtered.length === 0 ? (
+
+            <EmptyState
+              icon={
+                mapLocation ? (
+                  <MapIcon className="h-7 w-7" />
+                ) : (
+                  <Search className="h-7 w-7" />
+                )
+              }
+              title={
+                mapLocation
+                  ? 'No available apartments here'
+                  : selectedCity
+                    ? `No available apartments in ${selectedCity}`
+                    : 'No properties match your filters'
+              }
+              description={
+                mapLocation
+                  ? `No apartments within ${MAP_RADIUS_KM} km of this location match your current filters.`
+                  : selectedCity
+                    ? 'Try changing the filters or selecting another location.'
+                    : 'Try widening your search or changing one of the filters.'
+              }
+              action={
+                mapLocation ? (
+                  <button
+                    type="button"
+                    onClick={
+                      clearMapLocation
+                    }
+                    className="btn-primary"
+                  >
+                    Show all properties
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={
+                      resetFilters
+                    }
+                    className="btn-primary"
+                  >
+                    Reset filters
+                  </button>
+                )
+              }
+            />
+
+          ) : (
+
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6">
+
+              {filtered.map(
+                (
+                  property,
+                  index,
+                ) => (
+                  <PropertyCard
+                    key={
+                      property.id
+                    }
+                    property={
+                      property
+                    }
+                    index={index}
+                  />
+                ),
+              )}
+
             </div>
           )}
 
           <div className="mt-8">
             <DisclaimerBanner />
           </div>
-
         </div>
+
+        {/* ===================================================
+            DESKTOP MAP — ALWAYS VISIBLE
+        ==================================================== */}
+
+        <aside className="hidden lg:block">
+
+          <div className="sticky top-24 h-[calc(100vh-120px)]">
+
+            <PropertyMap
+  properties={baseFiltered}
+  selectedLocation={
+    mapLocation
+  }
+  onLocationSelect={
+    handleMapLocation
+  }
+  onViewportChange={
+    handleMapViewport
+  }
+  radiusKm={
+    MAP_RADIUS_KM
+  }
+/>
+
+            {mapLocation && (
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3">
+
+                <div>
+                  <p className="text-sm font-semibold text-brand-700">
+                    {filtered.length}{' '}
+                    {filtered.length === 1
+                      ? 'property'
+                      : 'properties'}{' '}
+                    nearby
+                  </p>
+
+                  <p className="text-xs text-brand-600">
+                    Within {MAP_RADIUS_KM} km
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    clearMapLocation
+                  }
+                  className="text-xs font-semibold text-brand-700 hover:text-brand-900"
+                >
+                  Show all properties
+                </button>
+
+              </div>
+            )}
+
+          </div>
+        </aside>
+      </div>
+
+      {/* =====================================================
+          MOBILE FIXED MAP BUTTON
+      ====================================================== */}
+
+      <div className="fixed bottom-5 left-1/2 z-[80] -translate-x-1/2 lg:hidden">
+
+        <button
+          type="button"
+          onClick={() =>
+            setMapOpen(
+              (open) => !open,
+            )
+          }
+          className="
+            inline-flex
+            min-w-[110px]
+            items-center
+            justify-center
+            gap-2
+            rounded-full
+            bg-brand-700
+            px-6
+            py-3
+            text-sm
+            font-bold
+            text-white
+            shadow-cardHover
+            transition
+            hover:bg-brand-800
+            active:scale-95
+          "
+        >
+          {mapOpen ? (
+            <ListIcon className="h-4 w-4" />
+          ) : (
+            <MapIcon className="h-4 w-4" />
+          )}
+
+          {mapOpen
+            ? 'Show apartments'
+            : 'Map'}
+        </button>
       </div>
     </div>
   )
 }
 
-function Pill({ label, onClear }) {
+/* ============================================================
+   HAVERSINE DISTANCE
+============================================================ */
+
+function distanceInKm(
+  lat1,
+  lng1,
+  lat2,
+  lng2,
+) {
+  const R = 6371
+
+  const dLat =
+    ((lat2 - lat1) * Math.PI) /
+    180
+
+  const dLng =
+    ((lng2 - lng1) * Math.PI) /
+    180
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(
+      (lat1 * Math.PI) / 180,
+    ) *
+      Math.cos(
+        (lat2 * Math.PI) / 180,
+      ) *
+      Math.sin(dLng / 2) ** 2
+
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+    2 *
+    R *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a),
+    )
+  )
+}
+
+/* ============================================================
+   FILTER PILL
+============================================================ */
+
+function Pill({
+  label,
+  onClear,
+}) {
+  return (
+    <span
+      className="
+        inline-flex
+        items-center
+        gap-1.5
+        rounded-full
+        bg-brand-50
+        px-3
+        py-1
+        text-xs
+        font-medium
+        text-brand-700
+      "
+    >
       {label}
 
       <button
+        type="button"
         onClick={onClear}
         className="rounded-full hover:text-brand-900"
         aria-label={`Remove ${label}`}
       >
         <X className="h-3 w-3" />
       </button>
-
     </span>
   )
 }

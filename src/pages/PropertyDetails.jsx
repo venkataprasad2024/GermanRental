@@ -5,6 +5,7 @@ import {
   Check, FileText, Download, ShieldCheck, Home, Clock, Euro, AlertCircle,
   Send, ChevronRight,
 } from 'lucide-react'
+import { FaWhatsapp, FaEnvelope } from 'react-icons/fa6'
 import { PropertyGallery } from '../components/PropertyGallery'
 import { Amenities } from '../components/Amenities'
 import { LandlordCard } from '../components/LandlordCard'
@@ -81,30 +82,178 @@ export default function PropertyDetails() {
   const handleInquiry = (e) => {
     e.preventDefault()
     setSubmitting(true)
+
     setTimeout(() => {
+      const tenantName =
+        form.name || user?.name || 'Guest'
+
+      const tenantEmail =
+        form.email || user?.email || ''
+
+      const landlordId =
+        property.landlordId ||
+        property.landlord?.id ||
+        property.landlord?.email ||
+        property.landlord?.name ||
+        ''
+
+      const landlordEmail =
+        property.landlordEmail ||
+        property.landlord?.email ||
+        ''
+
+      const landlordWhatsapp =
+        property.landlord?.whatsapp ||
+        property.whatsapp ||
+        ''
+
+      const propertyUrl =
+        `${import.meta.env.VITE_APP_URL || window.location.origin}/properties/${property.id}`
+
       addInquiry({
         propertyId: property.id,
         propertyTitle: property.title,
-        tenantName: form.name || (user?.name ?? 'Guest'),
-        tenantEmail: form.email || (user?.email ?? ''),
+        tenantId: user?.id || '',
+        tenantName,
+        tenantEmail,
         message: form.message,
         moveDate: form.moveDate,
+        landlordId,
+        landlordName: property.landlord?.name || '',
+        landlordEmail,
+        landlordWhatsapp,
       })
+
       setSubmitting(false)
       setInquiryOpen(false)
       setForm({ name: '', email: '', message: '', moveDate: '' })
-      toast.success('Inquiry sent to the landlord. They will be in touch.')
+
+      const whatsappNumber = String(
+        landlordWhatsapp,
+      ).replace(/[^0-9]/g, '')
+
+      if (whatsappNumber) {
+        const whatsappMessage = [
+          `Hello ${property.landlord?.name || 'Landlord'},`,
+          '',
+          'I am interested in this property.',
+          '',
+          `Property: ${property.title}`,
+          `Location: ${property.address || `${property.district}, ${property.city}`}`,
+          `Rent: ${formatEUR(property.rent)}/month`,
+          `Available from: ${formatDate(property.available)}`,
+          `Move-in date: ${form.moveDate || 'Not specified'}`,
+          '',
+          `Message: ${form.message}`,
+          '',
+          'Property link:',
+          propertyUrl,
+          '',
+          `My name: ${tenantName}`,
+          `My email: ${tenantEmail}`,
+        ].join('\n')
+
+        const whatsappUrl =
+          `https://wa.me/${whatsappNumber}?text=` +
+          encodeURIComponent(whatsappMessage)
+
+        window.open(
+          whatsappUrl,
+          '_blank',
+          'noopener,noreferrer',
+        )
+      }
+
+      toast.success(
+        whatsappNumber
+          ? 'Inquiry saved. WhatsApp opened with the inquiry details.'
+          : 'Inquiry sent to the landlord. They will be in touch.',
+      )
     }, 600)
   }
 
   const share = () => {
+    const propertyUrl = `${import.meta.env.VITE_APP_URL || window.location.origin}/properties/${property.id}`
+
     if (navigator.share) {
-      navigator.share({ title: property.title, url: window.location.href }).catch(() => {})
+      navigator.share({ title: property.title, url: propertyUrl }).catch(() => {})
     } else {
-      navigator.clipboard?.writeText(window.location.href)
+      navigator.clipboard?.writeText(propertyUrl)
       toast.success('Link copied to clipboard')
     }
   }
+
+  const openWhatsApp = () => {
+    const whatsapp = property.landlord?.whatsapp || ''
+    const phone = whatsapp.replace(/[^0-9]/g, '')
+
+    if (!phone) {
+      toast.info('WhatsApp contact is not available for this listing.')
+      return
+    }
+
+    const message = [
+      `Hi, I am interested in this apartment.`,
+      ``,
+      `Property: ${property.title}`,
+      `Location: ${property.address || `${property.district}, ${property.city}`}`,
+      `Rent: ${formatEUR(property.rent)}/month`,
+      `Available from: ${formatDate(property.available)}`,
+      ``,
+      `Property link:`,
+     `${import.meta.env.VITE_APP_URL || window.location.origin}/properties/${property.id}`,
+      ``,
+      `Could you please provide more information?`,
+      `Thank you.`,
+    ].join('\n')
+
+    window.open(
+      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+      '_blank',
+      'noopener,noreferrer',
+    )
+  }
+
+  const openEmail = () => {
+  const email = property.landlord?.email || ''
+
+  if (!email) {
+    toast.info('Email contact is not available for this listing.')
+    return
+  }
+
+  const subject =
+    `Interest in your apartment - ${property.title}`
+
+  const body = [
+    'Hi,',
+    '',
+    'I am interested in this apartment.',
+    '',
+    `Property: ${property.title}`,
+    `Location: ${property.address || `${property.district}, ${property.city}`}`,
+    `Rent: ${formatEUR(property.rent)}/month`,
+    `Available from: ${formatDate(property.available)}`,
+    '',
+    'Property link:',
+    `${import.meta.env.VITE_APP_URL || window.location.origin}/properties/${property.id}`,
+    '',
+    'Could you please provide more information?',
+    'Thank you.',
+  ].join('\n')
+
+  const gmailComposeUrl =
+    `https://mail.google.com/mail/?view=cm&fs=1` +
+    `&to=${encodeURIComponent(email)}` +
+    `&su=${encodeURIComponent(subject)}` +
+    `&body=${encodeURIComponent(body)}`
+
+  window.open(
+    gmailComposeUrl,
+    '_blank',
+    'noopener,noreferrer',
+  )
+}
 
   return (
     <div className="container-page py-6 lg:py-8">
@@ -282,6 +431,26 @@ export default function PropertyDetails() {
               >
                 <Heart className={classNames('h-4 w-4', fav && 'fill-current')} /> {fav ? 'Saved to favorites' : 'Save to favorites'}
               </button>
+
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button
+                   type="button"
+               onClick={openWhatsApp}
+                   className="btn-secondary w-full"
+                      >
+                      <FaWhatsapp className="h-5 w-5 text-[#25D366]" />
+                         WhatsApp
+                      </button>
+
+                         <button
+                   type="button"
+                   onClick={openEmail}
+                   className="btn-secondary w-full"
+                          >
+                       <FaEnvelope className="h-4 w-4 text-[#064B7A]" />
+                      Email
+                    </button>
+              </div>
             </div>
 
             <LandlordCard landlord={property.landlord} />

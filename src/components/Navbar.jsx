@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   Heart,
   Search,
@@ -16,9 +16,10 @@ import {
 
 import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
-import { Logo } from './Logo'
+import germanMitraLogo from '../assets/german-mitra-logo.png'
 import { classNames } from '../utils/format'
 import { GERMAN_CITIES } from '../data/cities'
+import GermanMitraIcon from '../assets/Standaloneicon.png'
 
 export function Navbar() {
   const {
@@ -35,19 +36,20 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // Search state
   const [location, setLocation] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showSuggestions, setShowSuggestions] =
+    useState(false)
 
   const menuRef = useRef(null)
   const searchRef = useRef(null)
 
   const navigate = useNavigate()
 
-  // ==================================================
-  // Navbar scroll effect
-  // ==================================================
-
+  /*
+   * =========================================================
+   * NAVBAR SCROLL
+   * =========================================================
+   */
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 8)
@@ -55,130 +57,160 @@ export function Navbar() {
 
     onScroll()
 
-    window.addEventListener('scroll', onScroll, {
-      passive: true,
-    })
+    window.addEventListener(
+      'scroll',
+      onScroll,
+      { passive: true },
+    )
 
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-    }
+    return () =>
+      window.removeEventListener(
+        'scroll',
+        onScroll,
+      )
   }, [])
 
-  // ==================================================
-  // Close profile dropdown when clicking outside
-  // ==================================================
-
+  /*
+   * =========================================================
+   * CLOSE PROFILE / APARTMENT MENUS
+   * =========================================================
+   */
   useEffect(() => {
-    const onClick = (e) => {
+    const onClick = (event) => {
       if (
         menuRef.current &&
-        !menuRef.current.contains(e.target)
+        !menuRef.current.contains(
+          event.target,
+        )
       ) {
         setMenuOpen(false)
       }
     }
 
-    document.addEventListener('mousedown', onClick)
+    document.addEventListener(
+      'mousedown',
+      onClick,
+    )
 
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-    }
+    return () =>
+      document.removeEventListener(
+        'mousedown',
+        onClick,
+      )
   }, [])
 
-  // ==================================================
-  // Close search suggestions when clicking outside
-  // ==================================================
-
+  /*
+   * =========================================================
+   * SEARCH OUTSIDE CLICK
+   * =========================================================
+   */
   useEffect(() => {
-    const onClick = (e) => {
+    const onClick = (event) => {
       if (
         searchRef.current &&
-        !searchRef.current.contains(e.target)
+        !searchRef.current.contains(
+          event.target,
+        )
       ) {
         setShowSuggestions(false)
       }
     }
 
-    document.addEventListener('mousedown', onClick)
+    document.addEventListener(
+      'mousedown',
+      onClick,
+    )
 
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-    }
+    return () =>
+      document.removeEventListener(
+        'mousedown',
+        onClick,
+      )
   }, [])
 
-  // ==================================================
-  // Disable body scroll when mobile menu is open
-  // ==================================================
-
+  /*
+   * =========================================================
+   * MOBILE SCROLL LOCK
+   * =========================================================
+   */
   useEffect(() => {
-    document.body.style.overflow = mobileOpen
-      ? 'hidden'
-      : ''
+    document.body.style.overflow =
+      mobileOpen ? 'hidden' : ''
 
     return () => {
       document.body.style.overflow = ''
     }
   }, [mobileOpen])
 
-  // ==================================================
-  // Search suggestions
-  // ==================================================
-
+  /*
+   * =========================================================
+   * LOCATION SEARCH
+   * =========================================================
+   */
   const filteredCities = location.trim()
     ? GERMAN_CITIES.filter((city) => {
-        const searchText = location
-          .trim()
-          .toLowerCase()
+        const searchText =
+          location.trim().toLowerCase()
 
         return (
-          city.name.toLowerCase().includes(searchText) ||
-          city.state.toLowerCase().includes(searchText)
+          city.name
+            .toLowerCase()
+            .includes(searchText) ||
+          city.state
+            .toLowerCase()
+            .includes(searchText)
         )
       }).slice(0, 6)
     : []
 
-  // ==================================================
-  // Search
-  // ==================================================
+  const handleSearch = (event) => {
+    event.preventDefault()
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-
-    const searchValue = location.trim()
+    const searchValue =
+      location.trim()
 
     setShowSuggestions(false)
 
-    if (searchValue) {
-      navigate(
-        `/properties?q=${encodeURIComponent(searchValue)}`
-      )
-    } else {
-      navigate('/properties')
-    }
-  }
-
-  // ==================================================
-  // Select search suggestion
-  // ==================================================
-
-  const handleSuggestionClick = (city) => {
-    if (!city || !city.name) return
-
-    // Put selected city into search box
-    setLocation(city.name)
-
-    // Close dropdown
-    setShowSuggestions(false)
-
-    // Navigate directly with city filter
     navigate(
-      `/properties?city=${encodeURIComponent(city.name)}`
+      searchValue
+        ? `/properties?q=${encodeURIComponent(
+            searchValue,
+          )}`
+        : '/properties',
     )
   }
 
-  // ==================================================
-  // Dashboard based on role
-  // ==================================================
+  const handleSuggestionClick = (
+    city,
+  ) => {
+    if (!city || !city.name) return
+
+    setLocation(city.name)
+    setShowSuggestions(false)
+
+    navigate(
+      `/properties?city=${encodeURIComponent(
+        city.name,
+      )}`,
+    )
+  }
+
+  /*
+   * =========================================================
+   * LOGOUT
+   * =========================================================
+   */
+  const handleLogout = () => {
+    logout()
+
+    setMenuOpen(false)
+    setApartmentsOpen(false)
+    setMobileApartmentsOpen(false)
+    setMobileOpen(false)
+
+    // Refresh the application after logout
+    window.location.reload()
+  }
 
   const dashboardLink = isAdmin
     ? '/dashboard/admin'
@@ -189,91 +221,64 @@ export function Navbar() {
   return (
     <header
       className={classNames(
-        'sticky top-0 z-50 w-full border-b transition-all duration-300',
+        'fixed left-0 right-0 top-0 z-50 w-full border-b transition-all duration-500 ease-smooth',
         scrolled
-          ? 'border-ink-100 bg-white/95 shadow-soft backdrop-blur-md'
-          : 'border-ink-100 bg-white'
+          ? 'border-brand-100/40 bg-gradient-to-b from-white/50 to-brand-50/50 shadow-glass backdrop-blur-xl'
+          : 'border-brand-100/40 bg-gradient-to-b from-white/60 to-brand-50/60 backdrop-blur-xl',
       )}
     >
       {/* ==================================================
           TOP NAVBAR
       ================================================== */}
 
-      <nav
-        className="
-          mx-auto flex
-          min-h-[72px]
-          w-full max-w-[1500px]
-          items-center
-          gap-4
-          px-5
-          lg:px-8
-        "
-      >
-        {/* ==================================================
-            LOGO
-        ================================================== */}
+     <nav className="flex min-h-[72px] w-full items-center gap-4 px-4 sm:px-6 lg:px-8 2xl:px-10">
+
+        {/* LOGO */}
 
         <Link
           to="/"
-          aria-label="GermanMitra home"
-          className="shrink-0"
+          aria-label="German Mitra home"
+          className="shrink-0 transition-transform duration-300 ease-spring hover:scale-105"
         >
-          <Logo />
+          <img
+            src={germanMitraLogo}
+            alt="German Mitra"
+            className="hidden h-14 w-auto object-contain md:block"
+          />
+
+          <img
+            src={GermanMitraIcon}
+            alt="German Mitra"
+            className="h-10 w-10 object-contain md:hidden"
+          />
         </Link>
 
-        {/* ==================================================
+        {/* ===================================================
             DESKTOP SEARCH
-        ================================================== */}
+        ==================================================== */}
 
         <div
           ref={searchRef}
-          className="
-            relative
-            hidden
-            min-w-0
-            flex-1
-            md:block
-            md:max-w-[380px]
-            lg:max-w-[400px]
-          "
+          className="relative hidden min-w-0 flex-1 md:block md:max-w-[380px] lg:max-w-[400px]"
         >
           <form onSubmit={handleSearch}>
-            <div
-              className="
-                flex h-12
-                w-full
-                items-center
-                overflow-hidden
-                rounded-full
-                border border-ink-200
-                bg-white
-                shadow-soft
-                transition-all duration-200
-                focus-within:border-brand-300
-                focus-within:shadow-card
-              "
-            >
-              <Search
-                className="
-                  ml-4
-                  h-4 w-4
-                  shrink-0
-                  text-ink-400
-                "
-              />
+            <div className="flex h-12 w-full items-center overflow-hidden rounded-full border border-white/60 bg-white/60 shadow-soft backdrop-blur-md transition-all duration-300 ease-smooth focus-within:border-brand-300/70 focus-within:bg-white/90 focus-within:shadow-glass">
+
+              <Search className="ml-4 h-4 w-4 shrink-0 text-ink-400" />
 
               <input
                 id="navbar-location"
                 type="text"
                 value={location}
-                onChange={(e) => {
-                  const value = e.target.value
+                onChange={(event) => {
+                  const value =
+                    event.target.value
 
                   setLocation(value)
 
                   setShowSuggestions(
-                    value.trim().length > 0
+                    value.trim().length >
+                      0,
                   )
                 }}
                 onFocus={() => {
@@ -284,149 +289,104 @@ export function Navbar() {
                 placeholder="Search city or location"
                 aria-label="Search city or location"
                 autoComplete="off"
-                className="
-                  min-w-0
-                  flex-1
-                  bg-transparent
-                  px-3
-                  text-sm
-                  font-medium
-                  text-ink-900
-                  outline-none
-                  placeholder:text-ink-400
-                "
+                className="min-w-0 flex-1 bg-transparent px-3 text-sm font-medium text-ink-900 outline-none placeholder:text-ink-400"
               />
 
               <button
                 type="submit"
                 aria-label="Search"
-                className="
-                  mr-1
-                  flex h-10 w-10
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-brand-600
-                  text-white
-                  transition
-                  hover:bg-brand-700
-                "
+                className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 to-brand-800 text-white shadow-brand transition-all duration-300 ease-spring hover:scale-105 hover:shadow-brandHover active:scale-95"
               >
                 <Search className="h-4 w-4" />
               </button>
             </div>
           </form>
 
-          {/* ==================================================
-              DESKTOP SEARCH SUGGESTIONS
-          ================================================== */}
-
-          {showSuggestions && location.trim() && (
-            <SearchSuggestions
-              cities={filteredCities}
-              onSelect={handleSuggestionClick}
-            />
-          )}
+          {showSuggestions &&
+            location.trim() && (
+              <SearchSuggestions
+                cities={filteredCities}
+                onSelect={
+                  handleSuggestionClick
+                }
+              />
+            )}
         </div>
 
-        {/* ==================================================
-            DESKTOP NAVIGATION
-        ================================================== */}
+        {/* ===================================================
+            DESKTOP NAV
+        ==================================================== */}
 
-        <div
-          className="
-            ml-auto
-            hidden
-            items-center
-            gap-1
-            md:flex
-          "
-        >
-          {/* Apartments */}
+        <div className="ml-auto hidden items-center gap-1 md:flex">
 
-          <Link
+          {/* HOME */}
+
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              classNames(
+                'rounded-full px-4 py-3 text-sm font-semibold transition-all duration-300 ease-smooth',
+                isActive
+                  ? 'bg-brand-50 text-brand-700 shadow-sm'
+                  : 'text-ink-900 hover:bg-brand-50/80 hover:text-brand-700',
+              )
+            }
+          >
+            Home
+          </NavLink>
+
+          {/* APARTMENTS */}
+
+          <NavLink
             to="/properties"
-            className="
-              rounded-full
-              px-4 py-3
-              text-sm
-              font-semibold
-              text-ink-900
-              transition
-              hover:bg-brand-50
-              hover:text-brand-700
-            "
+            end
+            className={({ isActive }) =>
+              classNames(
+                'rounded-full px-4 py-3 text-sm font-semibold transition-all duration-300 ease-smooth',
+                isActive
+                  ? 'bg-brand-50 text-brand-700 shadow-sm'
+                  : 'text-ink-900 hover:bg-brand-50/80 hover:text-brand-700',
+              )
+            }
           >
             Apartments
-          </Link>
+          </NavLink>
 
-          {/* For landlords */}
+          {/* LANDLORD */}
 
-          <Link
+          <NavLink
             to="/dashboard/landlord"
-            className="
-              rounded-full
-              px-4 py-3
-              text-sm
-              font-semibold
-              text-ink-900
-              transition
-              hover:bg-brand-50
-              hover:text-brand-700
-            "
+            className={({ isActive }) =>
+              classNames(
+                'rounded-full px-4 py-3 text-sm font-semibold transition-all duration-300 ease-smooth',
+                isActive
+                  ? 'bg-brand-50 text-brand-700 shadow-sm'
+                  : 'text-ink-900 hover:bg-brand-50/80 hover:text-brand-700',
+              )
+            }
           >
             For landlords
-          </Link>
+          </NavLink>
 
-          {/* Wishlist */}
+          {/* WISHLIST */}
 
           <Link
             to="/dashboard/tenant"
             aria-label="Wishlist"
             title="Wishlist"
-            className="
-              relative
-              flex
-              h-11 w-11
-              items-center
-              justify-center
-              rounded-full
-              text-ink-900
-              transition
-              hover:bg-brand-50
-              hover:text-brand-700
-            "
+            className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink-900 transition-all duration-300 ease-spring hover:scale-110 hover:bg-brand-50/80 hover:text-brand-700"
           >
             <Heart className="h-5 w-5" />
 
             {favorites.length > 0 && (
-              <span
-                className="
-                  absolute
-                  -right-0.5
-                  -top-0.5
-                  flex
-                  h-5
-                  min-w-5
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-brand-600
-                  px-1.5
-                  text-[10px]
-                  font-bold
-                  text-white
-                "
-              >
+              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-500 px-1.5 text-[10px] font-bold text-white shadow-accent animate-glow-pulse">
                 {favorites.length}
               </span>
             )}
           </Link>
 
-          {/* ==================================================
-              AUTHENTICATED USER
-          ================================================== */}
+          {/* PROFILE */}
 
           {isAuthenticated ? (
             <div
@@ -434,97 +394,51 @@ export function Navbar() {
               ref={menuRef}
             >
               <button
+                type="button"
                 onClick={() =>
-                  setMenuOpen((open) => !open)
+                  setMenuOpen(
+                    (open) => !open,
+                  )
                 }
-                className="
-                  flex
-                  items-center
-                  gap-2
-                  rounded-full
-                  border border-ink-200
-                  bg-ink-50
-                  py-1
-                  pl-1
-                  pr-3
-                  transition
-                  hover:border-brand-200
-                  hover:bg-brand-50
-                "
+                className="flex items-center gap-2 rounded-full border border-white/60 bg-white/50 py-1 pl-1 pr-3 backdrop-blur-md transition-all duration-300 ease-smooth hover:border-brand-200 hover:bg-brand-50/80 hover:shadow-soft"
               >
                 <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="
-                    h-9 w-9
-                    rounded-full
-                    object-cover
-                  "
+                  src={user?.avatar || 'https://i.pravatar.cc/150?img=12'}
+                  alt={user?.name || 'User'}
+                  className="h-9 w-9 rounded-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.onerror = null
+                    event.currentTarget.src = 'https://i.pravatar.cc/150?img=12'
+                  }}
                 />
 
-                <span
-                  className="
-                    max-w-24
-                    truncate
-                    text-sm
-                    font-semibold
-                    text-ink-800
-                  "
-                >
+                <span className="max-w-24 truncate text-sm font-semibold text-ink-800">
                   {user.name.split(' ')[0]}
                 </span>
 
                 <ChevronDown
-                  className="
-                    h-4 w-4
-                    text-ink-500
-                  "
+                  className={classNames(
+                    'h-4 w-4 text-ink-500 transition-transform duration-300',
+                    menuOpen &&
+                      'rotate-180',
+                  )}
                 />
               </button>
 
-              {/* User Dropdown */}
-
               {menuOpen && (
-                <div
-                  className="
-                    absolute
-                    right-0
-                    mt-3
-                    w-60
-                    overflow-hidden
-                    rounded-2xl
-                    bg-white
-                    py-2
-                    shadow-cardHover
-                    ring-1
-                    ring-ink-100
-                    animate-scale-in
-                  "
-                >
+                <div className="absolute right-0 mt-3 w-60 overflow-hidden rounded-2xl border border-white/60 bg-white/80 py-2 shadow-glassHover backdrop-blur-xl animate-scale-in">
+
                   <div className="px-4 py-3">
-                    <p
-                      className="
-                        text-sm
-                        font-semibold
-                        text-ink-900
-                      "
-                    >
+                    <p className="text-sm font-semibold text-ink-900">
                       {user.name}
                     </p>
 
-                    <p
-                      className="
-                        mt-0.5
-                        truncate
-                        text-xs
-                        text-ink-500
-                      "
-                    >
+                    <p className="mt-0.5 truncate text-xs text-ink-500">
                       {user.email}
                     </p>
                   </div>
 
-                  <div className="mx-3 h-px bg-ink-100" />
+                  <div className="mx-3 h-px bg-ink-100/70" />
 
                   <MenuItem
                     to={dashboardLink}
@@ -561,22 +475,12 @@ export function Navbar() {
                     />
                   )}
 
-                  <div className="mx-3 my-1 h-px bg-ink-100" />
+                  <div className="mx-3 my-1 h-px bg-ink-100/70" />
 
                   <button
+                    type="button"
                     onClick={handleLogout}
-                    className="
-                      flex
-                      w-full
-                      items-center
-                      gap-3
-                      px-4 py-2.5
-                      text-sm
-                      text-ink-700
-                      transition
-                      hover:bg-brand-50
-                      hover:text-brand-700
-                    "
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-ink-700 transition-colors duration-200 hover:bg-brand-50/80 hover:text-brand-700"
                   >
                     <LogOut className="h-4 w-4" />
                     Sign out
@@ -585,50 +489,85 @@ export function Navbar() {
               )}
             </div>
           ) : (
-            /* ==================================================
-               SIGN IN
-            ================================================== */
-
             <Link
               to="/login"
-              className="
-                ml-2
-                rounded-full
-                bg-ink-100
-                px-6 py-3
-                text-sm
-                font-semibold
-                text-ink-900
-                transition
-                hover:bg-brand-100
-                hover:text-brand-800
-              "
+              className="ml-2 rounded-full border border-white/30 bg-gradient-to-r from-accent-400 to-accent-600 px-6 py-3 text-sm font-semibold text-white shadow-accent backdrop-blur-sm transition-all duration-300 ease-spring hover:scale-105 hover:shadow-accentHover active:scale-95"
             >
               Sign in
             </Link>
           )}
         </div>
 
-        {/* ==================================================
-            MOBILE MENU BUTTON
-        ================================================== */}
+        {/* ===================================================
+            MOBILE SEARCH
+        ==================================================== */}
+
+        <div
+          ref={searchRef}
+          className="relative min-w-0 flex-1 md:hidden"
+        >
+          <form onSubmit={handleSearch}>
+            <div className="flex h-11 w-full items-center overflow-hidden rounded-full border border-white/60 bg-white/70 shadow-soft backdrop-blur-sm transition-all duration-300 focus-within:border-brand-300/70">
+
+              <Search className="ml-3 h-4 w-4 shrink-0 text-ink-400" />
+
+              <input
+                type="text"
+                value={location}
+                onChange={(event) => {
+                  const value =
+                    event.target.value
+
+                  setLocation(value)
+
+                  setShowSuggestions(
+                    value.trim().length >
+                      0,
+                  )
+                }}
+                onFocus={() => {
+                  if (location.trim()) {
+                    setShowSuggestions(true)
+                  }
+                }}
+                placeholder="Search city"
+                aria-label="Search city or location"
+                autoComplete="off"
+                className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-ink-400"
+              />
+
+              <button
+                type="submit"
+                aria-label="Search"
+                className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 to-brand-800 text-white shadow-brand transition-all duration-300 ease-spring active:scale-90"
+              >
+                <Search className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </form>
+
+          {showSuggestions &&
+            location.trim() && (
+              <SearchSuggestions
+                cities={filteredCities}
+                onSelect={
+                  handleSuggestionClick
+                }
+                mobile
+              />
+            )}
+        </div>
+
+        {/* MOBILE MENU BUTTON */}
 
         <button
+          type="button"
           onClick={() =>
-            setMobileOpen((open) => !open)
+            setMobileOpen(
+              (open) => !open,
+            )
           }
-          className="
-            ml-auto
-            inline-flex
-            items-center
-            justify-center
-            rounded-full
-            p-2.5
-            text-ink-800
-            transition
-            hover:bg-brand-50
-            md:hidden
-          "
+          className="ml-1 inline-flex shrink-0 items-center justify-center rounded-full p-2.5 text-ink-800 transition-all duration-300 ease-spring hover:scale-110 hover:bg-brand-50/80 md:hidden"
           aria-label="Toggle menu"
           aria-expanded={mobileOpen}
         >
@@ -640,135 +579,31 @@ export function Navbar() {
         </button>
       </nav>
 
-      {/* ==================================================
-          MOBILE / TABLET SEARCH
-      ================================================== */}
-
-      <div
-        ref={searchRef}
-        className="
-          relative
-          border-t
-          border-ink-100
-          bg-white
-          px-5
-          pb-3
-          pt-2
-          md:hidden
-        "
-      >
-        <form onSubmit={handleSearch}>
-          <div
-            className="
-              flex h-11
-              w-full
-              items-center
-              overflow-hidden
-              rounded-full
-              border border-ink-200
-              bg-white
-              shadow-soft
-              focus-within:border-brand-300
-            "
-          >
-            <Search
-              className="
-                ml-4
-                h-4 w-4
-                shrink-0
-                text-ink-400
-              "
-            />
-
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => {
-                const value = e.target.value
-
-                setLocation(value)
-
-                setShowSuggestions(
-                  value.trim().length > 0
-                )
-              }}
-              onFocus={() => {
-                if (location.trim()) {
-                  setShowSuggestions(true)
-                }
-              }}
-              placeholder="Search city or location"
-              aria-label="Search city or location"
-              autoComplete="off"
-              className="
-                min-w-0
-                flex-1
-                bg-transparent
-                px-3
-                text-sm
-                outline-none
-                placeholder:text-ink-400
-              "
-            />
-
-            <button
-              type="submit"
-              aria-label="Search"
-              className="
-                mr-1
-                flex h-9 w-9
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                bg-brand-600
-                text-white
-                transition
-                hover:bg-brand-700
-              "
-            >
-              <Search className="h-4 w-4" />
-            </button>
-          </div>
-        </form>
-
-        {/* Mobile suggestions */}
-
-        {showSuggestions && location.trim() && (
-          <SearchSuggestions
-            cities={filteredCities}
-            onSelect={handleSuggestionClick}
-            mobile
-          />
-        )}
-      </div>
-
-      {/* ==================================================
+      {/* =====================================================
           MOBILE MENU
-      ================================================== */}
+      ====================================================== */}
 
       {mobileOpen && (
-        <div
-          className="
-            border-t
-            border-ink-100
-            bg-white
-            md:hidden
-            animate-fade-in
-          "
-        >
-          <div
-            className="
-              mx-auto
-              max-w-[1500px]
-              space-y-1
-              px-5
-              py-4
-            "
-          >
+        <div className="border-t border-white/40 bg-white/80 backdrop-blur-xl md:hidden animate-fade-in">
+          <div className="w-full space-y-1 px-4 py-4 sm:px-6 lg:px-8">
+
+            {/* MOBILE HOME */}
+
+            <MobileLink
+              to="/"
+              label="Home"
+              end
+              onClick={() =>
+                setMobileOpen(false)
+              }
+            />
+
+            {/* MOBILE APARTMENTS */}
+
             <MobileLink
               to="/properties"
               label="Apartments"
+              end
               onClick={() =>
                 setMobileOpen(false)
               }
@@ -782,7 +617,7 @@ export function Navbar() {
               }
             />
 
-            {/* Wishlist */}
+            {/* WISHLIST */}
 
             <Link
               to="/dashboard/tenant"
@@ -790,45 +625,22 @@ export function Navbar() {
                 setMobileOpen(false)
               }
               aria-label="Wishlist"
-              className="
-                flex
-                items-center
-                gap-3
-                rounded-xl
-                px-4 py-3
-                text-base
-                font-semibold
-                text-ink-800
-                transition
-                hover:bg-brand-50
-                hover:text-brand-700
-              "
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold text-ink-800 transition-all duration-300 hover:bg-brand-50/80 hover:text-brand-700"
             >
               <Heart className="h-5 w-5" />
 
               <span>Wishlist</span>
 
               {favorites.length > 0 && (
-                <span
-                  className="
-                    ml-auto
-                    rounded-full
-                    bg-brand-600
-                    px-2
-                    py-0.5
-                    text-xs
-                    font-bold
-                    text-white
-                  "
-                >
+                <span className="ml-auto rounded-full bg-accent-500 px-2 py-0.5 text-xs font-bold text-white shadow-accent">
                   {favorites.length}
                 </span>
               )}
             </Link>
 
-            <div className="my-3 h-px bg-ink-100" />
+            <div className="my-3 h-px bg-ink-100/70" />
 
-            {/* Authenticated mobile options */}
+            {/* AUTH */}
 
             {isAuthenticated ? (
               <>
@@ -837,19 +649,7 @@ export function Navbar() {
                   onClick={() =>
                     setMobileOpen(false)
                   }
-                  className="
-                    flex
-                    items-center
-                    gap-3
-                    rounded-xl
-                    px-4 py-3
-                    text-base
-                    font-semibold
-                    text-ink-800
-                    transition
-                    hover:bg-brand-50
-                    hover:text-brand-700
-                  "
+                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold text-ink-800 transition-all duration-300 hover:bg-brand-50/80 hover:text-brand-700"
                 >
                   {isAdmin ? (
                     <Shield className="h-5 w-5" />
@@ -863,50 +663,21 @@ export function Navbar() {
                 </Link>
 
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="
-                    flex
-                    w-full
-                    items-center
-                    gap-3
-                    rounded-xl
-                    px-4 py-3
-                    text-left
-                    text-base
-                    font-semibold
-                    text-ink-800
-                    transition
-                    hover:bg-brand-50
-                    hover:text-brand-700
-                  "
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-semibold text-ink-800 transition-all duration-300 hover:bg-brand-50/80 hover:text-brand-700"
                 >
                   <LogOut className="h-5 w-5" />
-
                   Sign out
                 </button>
               </>
             ) : (
-              /* Mobile Sign In */
-
               <Link
                 to="/login"
                 onClick={() =>
                   setMobileOpen(false)
                 }
-                className="
-                  mt-2
-                  block
-                  rounded-full
-                  bg-ink-100
-                  px-6 py-3
-                  text-center
-                  text-base
-                  font-semibold
-                  text-ink-900
-                  transition
-                  hover:bg-brand-100
-                  hover:text-brand-800
-                "
+                className="mt-2 block rounded-full bg-gradient-to-r from-accent-400 to-accent-600 px-6 py-3 text-center text-base font-semibold text-white shadow-accent transition-all duration-300 ease-spring active:scale-95"
               >
                 Sign in
               </Link>
@@ -918,186 +689,11 @@ export function Navbar() {
   )
 }
 
-/* ==========================================================
-   SEARCH SUGGESTIONS
-========================================================== */
+/* ============================================================
+   APARTMENT MENU LINK
+============================================================ */
 
-function SearchSuggestions({
-  cities,
-  onSelect,
-  mobile = false,
-}) {
-  return (
-    <div
-      className={`
-        absolute
-        left-0
-        right-0
-        top-full
-        z-[60]
-        mt-2
-        overflow-hidden
-        rounded-2xl
-        border
-        border-ink-100
-        bg-white
-        shadow-cardHover
-        ${mobile ? 'mx-5' : ''}
-      `}
-    >
-      {cities.length > 0 ? (
-        <div className="py-2">
-          <p
-            className="
-              px-4
-              pb-2
-              pt-2
-              text-xs
-              font-semibold
-              uppercase
-              tracking-wide
-              text-ink-400
-            "
-          >
-            Locations
-          </p>
-
-          {cities.map((city) => (
-            <button
-              key={city.name}
-              type="button"
-
-              /*
-               * IMPORTANT:
-               * Use onMouseDown instead of onClick.
-               *
-               * The Navbar also has a document-level
-               * mousedown listener that closes the
-               * suggestions. Using mousedown here makes
-               * sure the city selection happens first.
-               */
-              onMouseDown={(e) => {
-                e.preventDefault()
-                onSelect(city)
-              }}
-
-              className="
-                flex
-                w-full
-                items-center
-                gap-3
-                px-4
-                py-3
-                text-left
-                transition
-                hover:bg-brand-50
-              "
-            >
-              <div
-                className="
-                  flex
-                  h-9
-                  w-9
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-brand-50
-                  text-brand-700
-                "
-              >
-                <Search className="h-4 w-4" />
-              </div>
-
-              <div className="min-w-0">
-                <p
-                  className="
-                    truncate
-                    text-sm
-                    font-semibold
-                    text-ink-900
-                  "
-                >
-                  {city.name}
-                </p>
-
-                <p
-                  className="
-                    truncate
-                    text-xs
-                    text-ink-500
-                  "
-                >
-                  {city.state}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="px-4 py-5 text-center">
-          <p
-            className="
-              text-sm
-              font-medium
-              text-ink-700
-            "
-          >
-            No locations found
-          </p>
-
-          <p
-            className="
-              mt-1
-              text-xs
-              text-ink-400
-            "
-          >
-            Try another city or location
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ==========================================================
-   DESKTOP DROPDOWN ITEM
-========================================================== */
-
-function MenuItem({
-  to,
-  icon,
-  label,
-  onClick,
-}) {
-  return (
-    <Link
-      to={to}
-      onClick={onClick}
-      className="
-        flex
-        items-center
-        gap-3
-        px-4 py-2.5
-        text-sm
-        text-ink-700
-        transition
-        hover:bg-brand-50
-        hover:text-brand-700
-      "
-    >
-      {icon}
-      {label}
-    </Link>
-  )
-}
-
-/* ==========================================================
-   MOBILE NAVIGATION ITEM
-========================================================== */
-
-function MobileLink({
+function ApartmentMenuLink({
   to,
   label,
   onClick,
@@ -1109,16 +705,132 @@ function MobileLink({
       className="
         block
         rounded-xl
-        px-4 py-3
-        text-base
+        px-4
+        py-3
+        text-sm
         font-semibold
-        text-ink-800
-        transition
+        text-ink-700
+        transition-all
+        duration-200
         hover:bg-brand-50
         hover:text-brand-700
       "
     >
       {label}
     </Link>
+  )
+}
+
+/* ============================================================
+   SEARCH SUGGESTIONS
+============================================================ */
+
+function SearchSuggestions({
+  cities,
+  onSelect,
+  mobile = false,
+}) {
+  return (
+    <div
+      className={classNames(
+        'absolute left-0 right-0 top-full z-[60] mt-2 overflow-hidden rounded-2xl border border-white/60 bg-white/85 shadow-glassHover backdrop-blur-xl animate-scale-in',
+        mobile && 'mx-5',
+      )}
+    >
+      {cities.length > 0 ? (
+        <div className="py-2">
+          <p className="px-4 pb-2 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
+            Locations
+          </p>
+
+          {cities.map((city) => (
+            <button
+              key={city.name}
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                onSelect(city)
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200 hover:bg-brand-50/80"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                <Search className="h-4 w-4" />
+              </div>
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-ink-900">
+                  {city.name}
+                </p>
+
+                <p className="truncate text-xs text-ink-500">
+                  {city.state}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 py-5 text-center">
+          <p className="text-sm font-medium text-ink-700">
+            No locations found
+          </p>
+
+          <p className="mt-1 text-xs text-ink-400">
+            Try another city or location
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ============================================================
+   MENU ITEM
+============================================================ */
+
+function MenuItem({
+  to,
+  icon,
+  label,
+  onClick,
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="flex items-center gap-3 px-4 py-2.5 text-sm text-ink-700 transition-colors duration-200 hover:bg-brand-50/80 hover:text-brand-700"
+    >
+      {icon}
+      {label}
+    </Link>
+  )
+}
+
+/* ============================================================
+   MOBILE LINK
+============================================================ */
+
+function MobileLink({
+  to,
+  label,
+  onClick,
+  end = false,
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onClick}
+      className={({ isActive }) =>
+        classNames(
+          'block rounded-xl px-4 py-3 text-base font-semibold transition-all duration-200',
+          isActive
+            ? 'bg-brand-50 text-brand-700 shadow-sm'
+            : 'text-ink-800 hover:bg-brand-50/80 hover:text-brand-700',
+        )
+      }
+    >
+      {label}
+    </NavLink>
   )
 }
